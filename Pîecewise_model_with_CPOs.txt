@@ -1,0 +1,49 @@
+model {
+  for (m in 1:8) {
+     dH0cv[m] <- (acv[m + 1] - acv[m]) * hcv[m]
+  }
+  for (m in 1:3) {
+     dH0ncv[m] <- (ancv[m + 1] - ancv[m]) * hncv[m]
+  }
+  for (i in 1:n) {
+    # Cardiovascular
+    elinpred[i, 1] <- exp(inprod(beta[, 1] , X[i, ]))
+    log.hazard[i, 1] <- log(hcv[int.obs.cv[i]]*elinpred[i, 1])
+    log.survival[i, 1] <- (-sum(dH0cv[1:int.obs.cv[i]]))*elinpred[i, 1]
+    # Non-cardiovascular
+    elinpred[i, 2] <- exp(inprod(beta[, 2] , X[i, ]))
+    log.hazard[i, 2] <- log(hncv[int.obs.ncv[i]]*elinpred[i, 2])
+    log.survival[i, 2] <- (-sum(dH0ncv[1:int.obs.ncv[i]]))*elinpred[i, 2]
+    # Likelihood. Zeros-trick
+    phi[i] <- 100000 - inprod (delta[i, ], log.hazard [i, ] ) - sum(log.survival[i, ])
+    zeros[i] ~ dpois(phi[i])
+    # CPOs
+    #dens.cv[i] <- exp(log.hazard[i,1])^delta[i,1]*exp(log.survival[i,1])
+    #dens.ncv[i] <- exp(log.hazard[i,2])^delta[i,2]*exp(log.survival[i,2])
+    #dens[i] <- dens.cv[i] * dens.ncv[i]
+    hazard.cv[i] <- hcv[int.obs.cv[i]]*12*elinpred[i, 1]
+    hazard.ncv[i] <- hncv[int.obs.ncv[i]]*12*elinpred[i, 2]
+    surv.cv[i] <- exp(-1*(sum(dH0cv[1:int.obs.cv[i]])*elinpred[i, 1]))
+    surv.ncv[i] <- exp(-1*(sum(dH0ncv[1:int.obs.ncv[i]])*elinpred[i, 2]))
+    dens.cv[i] <- hazard.cv[i]^delta[i,1] * surv.cv[i]
+    dens.ncv[i] <- hazard.ncv[i]^delta[i,2] * surv.ncv[i]
+    # Independence between causes of death (prior independence)
+    dens[i] <- dens.cv[i] * dens.ncv[i]
+
+  }
+  
+
+  # Priors
+  for(k in 1:Nrisks) {
+    for(l in 1:Nbetas) {
+      beta [l, k] ~ dnorm(0, 0.001)
+    }
+  }
+
+  for (m in 1:8) {
+     hcv[m] ~ dgamma(0.1, 0.1)
+  }
+  for (m in 1:3) {
+     hncv[m] ~ dgamma(0.1, 0.1)
+  }
+}

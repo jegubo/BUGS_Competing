@@ -1,0 +1,36 @@
+model {
+  for (i in 1:n) {
+    for (k in 1:Nrisks) {
+      # Weibull baseline
+      base[i, k] <- lambda[k]*alpha[k]*pow(t[i], alpha[k] - 1)
+      elinpred[i, k] <- exp(inprod(beta[, k] , X[i, ]))
+      # Log−hazard functions
+      logHaz[i, k] <- log(base [i, k]*elinpred [i, k])
+      # Log−sur v i v a l functions
+      logSurv[i, k] <- -lambda[k]*pow(t[i], alpha[k] )*elinpred [i, k]
+    }
+    # Definition of the log-likelihood using zeros trick
+    phi[i] <- 100000 - inprod (delta[i, ], logHaz [i, ] ) - sum(logSurv[i, ])
+    zeros[i] ~ dpois(phi[i])
+    # CPOs
+    # dens.cv[i] <- exp(logHaz[i,1])^delta[i,1]*exp(logSurv[i,1])
+    # dens.ncv[i] <- exp(logHaz[i,2])^delta[i,2]*exp(logSurv[i,2])
+    hazard.cv[i] <- base [i, 1]*elinpred [i, 1]
+    hazard.ncv[i] <- base [i, 2]*elinpred [i, 2]
+    surv.cv[i] <- exp(-1*(lambda[1]*pow(t[i], alpha[1] )*elinpred [i, 1]))
+    surv.ncv[i] <- exp(-1*(lambda[2]*pow(t[i], alpha[2] )*elinpred [i, 2]))
+    dens.cv[i] <- hazard.cv[i]^delta[i,1] * surv.cv[i]
+    dens.ncv[i] <- hazard.ncv[i]^delta[i,2] * surv.ncv[i]
+    # Independence between causes of death (prior independence)
+    dens[i] <- dens.cv[i] * dens.ncv[i]
+
+  }
+  # Priors
+  for(k in 1:Nrisks) {
+    for(l in 1:Nbetas) {
+      beta [l, k] ~ dnorm(0, 0.001)
+    } 
+    lambda[k] ~ dgamma(0.01, 0.01)
+    alpha[k] ~ dunif (0, 10)
+  }
+}
